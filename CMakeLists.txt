@@ -17,6 +17,7 @@ add_executable(${PROJECT_NAME}
         src/include/Mesh.cpp
         src/include/TerrainGenerator.cpp
         src/include/NoiseGenerator.cpp
+        src/include/LightingConfig.cpp
 )
 
 # Include directories
@@ -33,7 +34,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 # Copy shaders to build directory
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/shaders/terrain_vertex.glsl ${CMAKE_CURRENT_BINARY_DIR}/terrain_vertex.glsl COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/shaders/terrain_fragment.glsl ${CMAKE_CURRENT_BINARY_DIR}/terrain_fragment.glsl COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/shaders/pbr_terrain_fragment.glsl ${CMAKE_CURRENT_BINARY_DIR}/pbr_terrain_fragment.glsl COPYONLY)
 
 # Set startup project for Visual Studio
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})

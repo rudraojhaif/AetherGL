@@ -9,6 +9,7 @@
 #include "Shader.h"
 #include "Mesh.h"
 #include "TerrainGenerator.h"
+#include "LightingConfig.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 1200;
@@ -66,8 +67,8 @@ int main() {
     // Initialize camera with better starting position for terrain viewing
     camera = std::make_unique<Camera>(glm::vec3(0.0f, 5.0f, 10.0f));
 
-    // Load terrain shaders
-    auto terrainShader = std::make_shared<Shader>("terrain_vertex.glsl", "terrain_fragment.glsl");
+    // Load PBR terrain shaders
+    auto terrainShader = std::make_shared<Shader>("terrain_vertex.glsl", "pbr_terrain_fragment.glsl");
 
     // Generate procedural terrain mesh with vertex displacement
     // Using medium quality settings for balanced performance and visual quality
@@ -107,21 +108,44 @@ int main() {
         // Use terrain shader
         terrainShader->use();
 
-        // Set lighting uniforms
-        terrainShader->setVec3("lightPos", glm::vec3(50.0f, 30.0f, 50.0f));  // High sun position
-        terrainShader->setVec3("lightColor", glm::vec3(1.0f, 0.95f, 0.8f)); // Warm sunlight
-        terrainShader->setVec3("viewPos", camera->getPosition());
-
-        // Set material height thresholds for distinct terrain layers
-        terrainShader->setFloat("u_grassHeight", 2.0f);   // Grass starts at 2 units height
-        terrainShader->setFloat("u_rockHeight", 8.0f);    // Rock starts at 8 units height  
-        terrainShader->setFloat("u_snowHeight", 12.0f);   // Snow starts at 12 units height
+        // === EASY LIGHTING CONFIGURATION ===
+        // You can easily change lighting here!
         
-        // Set Parallax Occlusion Mapping parameters
-        terrainShader->setBool("u_enablePOM", true);      // Enable POM for surface detail
-        terrainShader->setFloat("u_pomScale", 0.1f);      // POM depth scale (adjust for effect strength)
-        terrainShader->setInt("u_pomMinSamples", 8);       // Minimum samples (performance)
-        terrainShader->setInt("u_pomMaxSamples", 32);      // Maximum samples (quality)
+        static LightingConfig lighting; // Create once
+        static bool lightingInitialized = false;
+        
+        if (!lightingInitialized) {
+            // Choose your lighting setup:
+            lighting.setupDefaultLights();      // Daytime with sun + accent lights
+            // lighting.setupSunsetLighting();   // Dramatic sunset scene
+            // lighting.setupNightLighting();    // Night scene with multiple colorful lights
+            
+            // Or customize manually:
+            // lighting.directionalLight.direction = glm::vec3(0.2f, -0.8f, 0.1f);
+            // lighting.directionalLight.color = glm::vec3(1.0f, 0.9f, 0.7f);
+            // lighting.directionalLight.intensity = 2.5f;
+            
+            // lighting.addPointLight(PointLight(
+            //     glm::vec3(5.0f, 10.0f, 0.0f),   // Position
+            //     glm::vec3(1.0f, 0.0f, 0.0f),    // Red color
+            //     30.0f,                          // Intensity
+            //     25.0f                           // Range
+            // ));
+            
+            // Terrain height thresholds
+            // lighting.terrain.grassHeight = 3.0f;
+            // lighting.terrain.rockHeight = 9.0f;
+            // lighting.terrain.snowHeight = 15.0f;
+            
+            // POM quality settings
+            // lighting.pom.scale = 0.12f;        // More pronounced depth
+            // lighting.pom.maxSamples = 128;     // Ultra high quality (expensive!)
+            
+            lightingInitialized = true;
+        }
+        
+        // Apply all lighting settings to shader
+        lighting.applyToShader(terrainShader, camera->getPosition());
 
         // Set transformation matrices
         glm::mat4 projection = glm::perspective(glm::radians(camera->getZoom()), 
