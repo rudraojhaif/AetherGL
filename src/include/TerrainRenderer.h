@@ -52,6 +52,9 @@ private:
     // Rendering methods
     void renderScene();
     void updateDeltaTime();
+    
+    // Utility methods
+    void exportTerrainToObj();
 
     // Core components
     std::unique_ptr<Camera> m_camera;

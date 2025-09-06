@@ -1,19 +1,35 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <iostream>
-#include <memory>
-#include <fstream>
-#include <sstream>
-#include <string>
+/**
+ * AetherGL - Advanced Procedural Terrain Rendering Engine
+ * 
+ * This application demonstrates real-time rendering of procedurally generated
+ * terrain using modern OpenGL 4.6 techniques including:
+ * - Physically Based Rendering (PBR) with Cook-Torrance BRDF
+ * - Parallax Occlusion Mapping (POM) for surface detail
+ * - Image-Based Lighting (IBL) for realistic environmental lighting  
+ * - Advanced post-processing pipeline with HDR and bloom
+ * - Volumetric atmospheric fog with height-based density
+ * - Multi-layered terrain materials with procedural blending
+ */
 
-#include "TerrainRenderer.h"
+#include <glad/glad.h>        // OpenGL function loader
+#include <GLFW/glfw3.h>       // Cross-platform window and input handling
+#include <iostream>           // Standard I/O operations
+#include <memory>             // Smart pointers for automatic memory management
+#include <fstream>            // File stream operations for configuration loading
+#include <sstream>            // String stream operations for parsing
+#include <string>             // String handling utilities
 
-// Global variables
-std::unique_ptr<TerrainRenderer> g_terrainRenderer;
-bool g_firstMouse = true;
-float g_lastX = 400.0f;
-float g_lastY = 300.0f;
-bool g_captureMouse = false;
+#include "TerrainRenderer.h"  // Main terrain rendering system
+
+/**
+ * Global application state variables
+ * These manage the overall application state and input handling
+ */
+std::unique_ptr<TerrainRenderer> g_terrainRenderer;  // Main rendering engine instance
+bool g_firstMouse = true;                            // Flag to handle first mouse movement
+float g_lastX = 400.0f;                              // Last recorded mouse X position
+float g_lastY = 300.0f;                              // Last recorded mouse Y position  
+bool g_captureMouse = false;                         // Mouse capture state for camera control
 
 // Configuration functions
 void createDefaultConfigFile() {
@@ -37,7 +53,7 @@ void createDefaultConfigFile() {
         configFile << "fog_color_b=0.9\n\n";
         
         configFile << "[Post-Processing]\n";
-        configFile << "enable_post_processing=true\n";
+        configFile << "enable_post_processing=false\n";
         configFile << "enable_bloom=true\n";
         configFile << "bloom_threshold=1.0\n";
         configFile << "bloom_intensity=0.8\n";
@@ -314,18 +330,45 @@ int main() {
     // Enable V-Sync
     glfwSwapInterval(1);
 
-    // Main render loop
+    /**
+     * Main rendering loop with frame time tracking
+     * Calculates and displays frame time statistics for performance monitoring
+     */
+    float lastFrameTime = glfwGetTime();
+    float frameTimeAccumulator = 0.0f;
+    int frameCount = 0;
+    
     while (!glfwWindowShouldClose(window)) {
-        // Process events
+        // Calculate frame timing for performance monitoring
+        float currentFrameTime = glfwGetTime();
+        float deltaTime = currentFrameTime - lastFrameTime;
+        lastFrameTime = currentFrameTime;
+        
+        // Accumulate frame times for averaging (display every 60 frames)
+        frameTimeAccumulator += deltaTime;
+        frameCount++;
+        
+        if (frameCount >= 60) {
+            float averageFrameTime = frameTimeAccumulator / frameCount;
+            // SAFETY: Prevent division by zero if frame time is extremely small
+            float fps = (averageFrameTime > 0.0001f) ? (1.0f / averageFrameTime) : 10000.0f;
+            
+            std::cout << "Frame Time: " << (averageFrameTime * 1000.0f) << "ms | FPS: " 
+                      << static_cast<int>(fps) << std::endl;
+            
+            frameTimeAccumulator = 0.0f;
+            frameCount = 0;
+        }
+        
+        // Process GLFW window events (keyboard, mouse, resize)
         glfwPollEvents();
 
-        // Render terrain
+        // Render the terrain scene
         if (g_terrainRenderer) {
             g_terrainRenderer->render();
         }
         
-
-        // Swap buffers
+        // Swap front and back framebuffers (double buffering)
         glfwSwapBuffers(window);
     }
 

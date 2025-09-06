@@ -63,4 +63,7 @@ public:
         m_yaw = yaw; 
         updateCameraVectors(); 
     }
+    void setPosition(const glm::vec3& position) {
+        m_position = position;
+    }
 };

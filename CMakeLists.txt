@@ -23,6 +23,7 @@ add_executable(${PROJECT_NAME}
         src/include/HDRLoader.cpp
         src/include/PostProcessor.cpp
         src/include/TerrainRenderer.cpp
+        src/include/ObjWriter.cpp
 )
 
 # Include directories
