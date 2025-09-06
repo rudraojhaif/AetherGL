@@ -1,5 +1,6 @@
 #include "TerrainGenerator.h"
 #include "Mesh.h"
+#include "NoiseGenerator.h"
 #include <iostream>
 #include <cmath>
 
@@ -8,14 +9,18 @@ std::shared_ptr<Mesh> TerrainGenerator::generateTerrainMesh(
     float depth,
     unsigned int widthSegments,
     unsigned int depthSegments,
-    const glm::vec3& center) {
+    const glm::vec3& center,
+    float heightScale,
+    float noiseScale,
+    unsigned int seed) {
     
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     
-    // Generate the plane mesh
-    if (!generatePlaneMesh(width, depth, widthSegments, depthSegments, center, vertices, indices)) {
-        std::cerr << "Failed to generate terrain plane mesh" << std::endl;
+    // Generate the displaced plane mesh with height variation
+    if (!generateDisplacedPlaneMesh(width, depth, widthSegments, depthSegments, 
+                                    center, heightScale, noiseScale, seed, vertices, indices)) {
+        std::cerr << "Failed to generate displaced terrain mesh" << std::endl;
         return nullptr;
     }
     
@@ -26,22 +31,27 @@ std::shared_ptr<Mesh> TerrainGenerator::generateTerrainMesh(
     return std::make_shared<Mesh>(vertices, indices);
 }
 
-std::shared_ptr<Mesh> TerrainGenerator::generateLowPolyTerrain(float size, const glm::vec3& center) {
+std::shared_ptr<Mesh> TerrainGenerator::generateLowPolyTerrain(
+    float size, const glm::vec3& center, float heightScale, unsigned int seed) {
     // Low-poly terrain with 50x50 subdivisions for performance
-    return generateTerrainMesh(size, size, 50, 50, center);
+    return generateTerrainMesh(size, size, 50, 50, center, heightScale, 0.03f, seed);
 }
 
-std::shared_ptr<Mesh> TerrainGenerator::generateHighPolyTerrain(float size, const glm::vec3& center) {
+std::shared_ptr<Mesh> TerrainGenerator::generateHighPolyTerrain(
+    float size, const glm::vec3& center, float heightScale, unsigned int seed) {
     // High-poly terrain with 200x200 subdivisions for quality
-    return generateTerrainMesh(size, size, 200, 200, center);
+    return generateTerrainMesh(size, size, 200, 200, center, heightScale, 0.02f, seed);
 }
 
-bool TerrainGenerator::generatePlaneMesh(
+bool TerrainGenerator::generateDisplacedPlaneMesh(
     float width,
     float depth,
     unsigned int widthSegments,
     unsigned int depthSegments,
     const glm::vec3& center,
+    float heightScale,
+    float noiseScale,
+    unsigned int seed,
     std::vector<Vertex>& vertices,
     std::vector<unsigned int>& indices) {
     
@@ -67,6 +77,9 @@ bool TerrainGenerator::generatePlaneMesh(
     vertices.reserve(totalVertices);
     indices.reserve(totalIndices);
     
+    // Create noise generator for height displacement
+    NoiseGenerator noiseGen(seed);
+    
     // Calculate step sizes
     const float stepX = width / static_cast<float>(widthSegments);
     const float stepZ = depth / static_cast<float>(depthSegments);
@@ -75,20 +88,27 @@ bool TerrainGenerator::generatePlaneMesh(
     const float startX = center.x - width * 0.5f;
     const float startZ = center.z - depth * 0.5f;
     
-    // Generate vertices
+    std::cout << "Generating terrain with " << totalVertices << " vertices..." << std::endl;
+    
+    // Generate vertices with height displacement
     for (unsigned int z = 0; z <= depthSegments; ++z) {
         for (unsigned int x = 0; x <= widthSegments; ++x) {
             Vertex vertex;
             
             // Calculate world position
             vertex.position.x = startX + static_cast<float>(x) * stepX;
-            vertex.position.y = center.y; // Base height, terrain displacement happens in shader
             vertex.position.z = startZ + static_cast<float>(z) * stepZ;
+            
+            // Generate height using noise - this is the key difference!
+            float terrainHeight = noiseGen.generateTerrainHeight(
+                vertex.position.x, vertex.position.z, noiseScale, heightScale
+            );
+            vertex.position.y = center.y + terrainHeight;
             
             // Generate texture coordinates (0 to 1 range)
             vertex.texCoords = generateTexCoords(vertex.position, std::max(width, depth));
             
-            // Initialize normal to point up (will be recalculated later)
+            // Initialize normal to point up (will be recalculated after mesh generation)
             vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
             
             vertices.push_back(vertex);

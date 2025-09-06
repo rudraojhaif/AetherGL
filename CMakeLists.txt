@@ -16,6 +16,7 @@ add_executable(${PROJECT_NAME}
         src/include/Shader.cpp
         src/include/Mesh.cpp
         src/include/TerrainGenerator.cpp
+        src/include/NoiseGenerator.cpp
 )
 
 # Include directories

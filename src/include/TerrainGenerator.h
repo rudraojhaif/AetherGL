@@ -7,6 +7,7 @@
 // Forward declarations
 class Mesh;
 struct Vertex;
+class NoiseGenerator;
 
 /**
  * TerrainGenerator - Creates procedural terrain meshes for rendering
@@ -32,6 +33,9 @@ public:
      * @param widthSegments Number of subdivisions along the width (higher = more detail)
      * @param depthSegments Number of subdivisions along the depth (higher = more detail)
      * @param center Center position of the terrain in world space
+     * @param heightScale Maximum height variation of the terrain
+     * @param noiseScale Scale factor for noise sampling (smaller = more zoomed out)
+     * @param seed Random seed for reproducible terrain (0 = random)
      * @return Shared pointer to the generated mesh, or nullptr on failure
      */
     static std::shared_ptr<Mesh> generateTerrainMesh(
@@ -39,7 +43,10 @@ public:
         float depth = 20.0f,
         unsigned int widthSegments = 100,
         unsigned int depthSegments = 100,
-        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f)
+        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f),
+        float heightScale = 10.0f,
+        float noiseScale = 0.05f,
+        unsigned int seed = 0
     );
 
     /**
@@ -48,7 +55,9 @@ public:
      */
     static std::shared_ptr<Mesh> generateLowPolyTerrain(
         float size = 20.0f,
-        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f)
+        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f),
+        float heightScale = 8.0f,
+        unsigned int seed = 0
     );
 
     /**
@@ -57,20 +66,25 @@ public:
      */
     static std::shared_ptr<Mesh> generateHighPolyTerrain(
         float size = 20.0f,
-        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f)
+        const glm::vec3& center = glm::vec3(0.0f, 0.0f, 0.0f),
+        float heightScale = 12.0f,
+        unsigned int seed = 0
     );
 
 private:
     /**
      * Internal mesh generation implementation
-     * Creates vertices and indices for a subdivided plane mesh
+     * Creates vertices and indices for a subdivided plane mesh with height displacement
      */
-    static bool generatePlaneMesh(
+    static bool generateDisplacedPlaneMesh(
         float width,
         float depth,
         unsigned int widthSegments,
         unsigned int depthSegments,
         const glm::vec3& center,
+        float heightScale,
+        float noiseScale,
+        unsigned int seed,
         std::vector<Vertex>& vertices,
         std::vector<unsigned int>& indices
     );

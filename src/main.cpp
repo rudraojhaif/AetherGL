@@ -69,14 +69,17 @@ int main() {
     // Load terrain shaders
     auto terrainShader = std::make_shared<Shader>("terrain_vertex.glsl", "terrain_fragment.glsl");
 
-    // Generate procedural terrain mesh
+    // Generate procedural terrain mesh with vertex displacement
     // Using medium quality settings for balanced performance and visual quality
     std::shared_ptr<Mesh> terrainMesh = TerrainGenerator::generateTerrainMesh(
-        50.0f,  // Width: 50 world units
-        50.0f,  // Depth: 50 world units  
-        128,    // Width segments: higher resolution for detailed terrain
-        128,    // Depth segments: higher resolution for detailed terrain
-        glm::vec3(0.0f, -2.0f, 0.0f)  // Center position (slightly below camera)
+        80.0f,  // Width: 80 world units
+        80.0f,  // Depth: 80 world units  
+        100,    // Width segments: good balance of detail and performance
+        100,    // Depth segments: good balance of detail and performance
+        glm::vec3(0.0f, 0.0f, 0.0f),  // Center position
+        15.0f,  // Height scale: maximum terrain elevation
+        0.08f,  // Noise scale: controls terrain "zoom" level
+        42      // Seed: for reproducible terrain (change for different terrain)
     );
     
     if (!terrainMesh) {
@@ -105,22 +108,25 @@ int main() {
         terrainShader->use();
 
         // Set lighting uniforms
-        terrainShader->setVec3("lightPos", glm::vec3(20.0f, 15.0f, 20.0f));  // Higher light for terrain
+        terrainShader->setVec3("lightPos", glm::vec3(50.0f, 30.0f, 50.0f));  // High sun position
         terrainShader->setVec3("lightColor", glm::vec3(1.0f, 0.95f, 0.8f)); // Warm sunlight
         terrainShader->setVec3("viewPos", camera->getPosition());
 
-        // Set terrain generation parameters
-        terrainShader->setFloat("u_time", static_cast<float>(glfwGetTime()));
-        terrainShader->setFloat("u_scale", 0.1f);         // Terrain noise scale
-        terrainShader->setFloat("u_heightScale", 3.0f);   // Terrain height multiplier
-        terrainShader->setInt("u_octaves", 6);            // Number of noise octaves
-        terrainShader->setFloat("u_persistence", 0.5f);   // Amplitude persistence
-        terrainShader->setFloat("u_lacunarity", 2.0f);    // Frequency lacunarity
+        // Set material height thresholds for distinct terrain layers
+        terrainShader->setFloat("u_grassHeight", 2.0f);   // Grass starts at 2 units height
+        terrainShader->setFloat("u_rockHeight", 8.0f);    // Rock starts at 8 units height  
+        terrainShader->setFloat("u_snowHeight", 12.0f);   // Snow starts at 12 units height
+        
+        // Set Parallax Occlusion Mapping parameters
+        terrainShader->setBool("u_enablePOM", true);      // Enable POM for surface detail
+        terrainShader->setFloat("u_pomScale", 0.1f);      // POM depth scale (adjust for effect strength)
+        terrainShader->setInt("u_pomMinSamples", 8);       // Minimum samples (performance)
+        terrainShader->setInt("u_pomMaxSamples", 32);      // Maximum samples (quality)
 
         // Set transformation matrices
         glm::mat4 projection = glm::perspective(glm::radians(camera->getZoom()), 
                                               (float)SCR_WIDTH / (float)SCR_HEIGHT, 
-                                              0.1f, 200.0f);  // Increased far plane for terrain
+                                              0.1f, 300.0f);  // Large far plane for expansive terrain
         glm::mat4 view = camera->getViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
         
