@@ -5,65 +5,63 @@
 #include <memory>
 
 /**
- * HDRLoader - Loads HDR images and generates cubemaps for IBL
+ * HDRLoader - Simplified HDR cubemap loader for IBL
  * 
- * This class provides functionality to load HDR images and convert them
- * to cubemaps for image-based lighting. It supports equirectangular to
- * cubemap conversion and generates the necessary IBL maps.
- * 
- * Industry standard features:
- * - HDR image loading (RGBE format)
- * - Equirectangular to cubemap conversion  
- * - Irradiance map generation
- * - Prefiltered environment map generation
- * - BRDF lookup table generation
+ * Loads HDR images and creates environment cubemaps for realistic lighting.
+ * Supports equirectangular HDR images and generates basic IBL textures.
  */
 class HDRLoader {
 public:
-    /**
-     * Load HDR image and generate IBL cubemaps
-     * 
-     * @param filepath Path to the HDR image file
-     * @param size Size of the generated cubemap (e.g., 512, 1024)
-     * @return True if successful, false otherwise
-     */
-    static bool loadHDREnvironment(const std::string& filepath, int size = 512);
+    struct IBLTextures {
+        GLuint environmentMap = 0;
+        GLuint irradianceMap = 0;
+        GLuint prefilterMap = 0;
+        GLuint brdfLUT = 0;
+        bool isValid() const { return environmentMap != 0; }
+    };
 
     /**
-     * Get the generated cubemap textures
+     * Load HDR environment and generate IBL textures
      */
-    static GLuint getEnvironmentMap() { return s_envCubemap; }
-    static GLuint getIrradianceMap() { return s_irradianceMap; }
-    static GLuint getPrefilterMap() { return s_prefilterMap; }
-    static GLuint getBRDFLUT() { return s_brdfLUT; }
+    static IBLTextures loadHDREnvironment(const std::string& filepath);
 
     /**
-     * Cleanup resources
+     * Create a skybox cubemap from HDR texture
      */
-    static void cleanup();
+    static GLuint createSkyboxFromHDR(const std::string& filepath, int size = 1024);
+
+    /**
+     * Cleanup textures
+     */
+    static void cleanup(const IBLTextures& textures);
+
+    /**
+     * Render a unit cube for cubemap generation
+     */
+    static void renderUnitCube();
 
 private:
-    // Generated textures
-    static GLuint s_envCubemap;
-    static GLuint s_irradianceMap;
-    static GLuint s_prefilterMap;
-    static GLuint s_brdfLUT;
-    
-    // Helper functions
-    static GLuint loadHDRTexture(const std::string& filepath);
-    static GLuint generateCubemap(GLuint hdrTexture, int size);
-    static GLuint generateIrradianceMap(GLuint envCubemap, int size = 64);
-    static GLuint generatePrefilterMap(GLuint envCubemap, int size = 128);
-    static GLuint generateBRDFLUT(int size = 512);
-    
-    // Shader utilities
-    static GLuint createShader(const std::string& vertexSource, const std::string& fragmentSource);
-    static void renderCube();
-    static void renderQuad();
-    
-    // Static mesh data
-    static GLuint s_cubeVAO;
-    static GLuint s_cubeVBO;
-    static GLuint s_quadVAO;
-    static GLuint s_quadVBO;
+    /**
+     * Load HDR image using stb_image
+     */
+    static float* loadHDRImage(const std::string& filepath, int& width, int& height, int& channels);
+
+    /**
+     * Convert equirectangular HDR to cubemap
+     */
+    static GLuint equirectangularToCubemap(float* hdrData, int width, int height, int cubemapSize);
+
+    /**
+     * Generate simple irradiance map (basic diffuse IBL)
+     */
+    static GLuint generateSimpleIrradianceMap(GLuint environmentMap, int size = 64);
+
+    /**
+     * Create basic BRDF LUT
+     */
+    static GLuint generateSimpleBRDFLUT(int size = 512);
+
+    // Cube mesh data
+    static GLuint s_cubeVAO, s_cubeVBO;
+    static bool s_cubeInitialized;
 };

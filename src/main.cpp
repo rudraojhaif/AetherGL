@@ -4,12 +4,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <memory>
+#include <iomanip>
 
 #include "Camera.h"
 #include "Shader.h"
 #include "Mesh.h"
 #include "TerrainGenerator.h"
 #include "LightingConfig.h"
+#include "HDRLoader.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 1200;
@@ -69,6 +71,9 @@ int main() {
 
     // Load PBR terrain shaders
     auto terrainShader = std::make_shared<Shader>("terrain_vertex.glsl", "pbr_terrain_fragment.glsl");
+    
+    // Load skybox shader
+    auto skyboxShader = std::make_shared<Shader>("skybox_vertex.glsl", "skybox_fragment.glsl");
 
     // Generate procedural terrain mesh with vertex displacement
     // Using medium quality settings for balanced performance and visual quality
@@ -90,6 +95,16 @@ int main() {
     }
     
     std::cout << "Procedural terrain generated successfully!" << std::endl;
+    
+    // Load HDR environment
+    std::cout << "Loading HDR environment..." << std::endl;
+    HDRLoader::IBLTextures iblTextures = HDRLoader::loadHDREnvironment("assets/qwantani_noon_puresky_4k.hdr");
+    
+    if (!iblTextures.isValid()) {
+        std::cerr << "Warning: Failed to load HDR environment. IBL will be disabled." << std::endl;
+    } else {
+        std::cout << "HDR environment loaded successfully!" << std::endl;
+    }
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
@@ -120,32 +135,77 @@ int main() {
             // lighting.setupSunsetLighting();   // Dramatic sunset scene
             // lighting.setupNightLighting();    // Night scene with multiple colorful lights
             
-            // Or customize manually:
-            // lighting.directionalLight.direction = glm::vec3(0.2f, -0.8f, 0.1f);
-            // lighting.directionalLight.color = glm::vec3(1.0f, 0.9f, 0.7f);
-            // lighting.directionalLight.intensity = 2.5f;
+            // === ATMOSPHERIC & FOG CONFIGURATION ===
+            lighting.atmosphere.enableAtmosphericFog = true;
+            lighting.atmosphere.fogDensity = 0.015f;              // Subtle fog
+            lighting.atmosphere.fogHeightFalloff = 0.08f;         // Height-based falloff
+            lighting.atmosphere.atmosphericPerspective = 0.7f;    // Strong atmospheric perspective
             
-            // lighting.addPointLight(PointLight(
-            //     glm::vec3(5.0f, 10.0f, 0.0f),   // Position
-            //     glm::vec3(1.0f, 0.0f, 0.0f),    // Red color
-            //     30.0f,                          // Intensity
-            //     25.0f                           // Range
-            // ));
+            // === HDR/IBL CONFIGURATION ===
+            lighting.ibl.enabled = iblTextures.isValid();         // Enable IBL if HDR loaded
+            lighting.ibl.intensity = 0.8f;                       // Strong IBL contribution
             
-            // Terrain height thresholds
-            // lighting.terrain.grassHeight = 3.0f;
-            // lighting.terrain.rockHeight = 9.0f;
-            // lighting.terrain.snowHeight = 15.0f;
+            // === TIME-OF-DAY SYSTEM ===
+            lighting.timeOfDay.animateTimeOfDay = true;           // Enable day/night cycle
+            lighting.timeOfDay.daySpeed = 0.05f;                 // Speed of cycle (slow)
+            lighting.timeOfDay.timeOfDay = 0.3f;                 // Start at morning
             
-            // POM quality settings
-            // lighting.pom.scale = 0.12f;        // More pronounced depth
-            // lighting.pom.maxSamples = 128;     // Ultra high quality (expensive!)
+            // === ADVANCED CUSTOMIZATION ===
+            // Uncomment to manually control:
+            // lighting.atmosphere.fogColor = glm::vec3(0.8f, 0.6f, 0.4f); // Warm fog
+            // lighting.atmosphere.fogDensity = 0.03f;            // Thicker fog
+            // lighting.timeOfDay.animateTimeOfDay = false;       // Static time
+            // lighting.directionalLight.direction = glm::vec3(0.3f, -0.6f, 0.1f);
+            
+            // Enhanced POM for atmospheric scenes
+            lighting.pom.scale = 0.1f;         // Good balance
+            lighting.pom.maxSamples = 48;      // High quality
+            
+            // === BIOME HEIGHT ADJUSTMENTS ===
+            // Adjust these values for clearer biome separation
+            lighting.terrain.grassHeight = 1.0f;   // Grass starts lower (more visible)
+            lighting.terrain.rockHeight = 6.0f;    // Rock starts at mid elevation
+            lighting.terrain.snowHeight = 10.0f;   // Snow caps start earlier
             
             lightingInitialized = true;
+            std::cout << "Atmospheric terrain system with HDR IBL initialized!" << std::endl;
+        }
+        
+        // Update time-of-day animation
+        lighting.updateTimeOfDay(deltaTime);
+        
+        // Display atmospheric info (optional debug output)
+        static float infoTimer = 0.0f;
+        infoTimer += deltaTime;
+        if (infoTimer > 5.0f) { // Every 5 seconds
+            if (lighting.timeOfDay.animateTimeOfDay) {
+                float timeHours = lighting.timeOfDay.timeOfDay * 24.0f;
+                int hours = (int)timeHours;
+                int minutes = (int)((timeHours - hours) * 60.0f);
+                std::cout << "Time: " << std::setfill('0') << std::setw(2) << hours 
+                         << ":" << std::setfill('0') << std::setw(2) << minutes
+                         << " | Sun Intensity: " << lighting.directionalLight.intensity << std::endl;
+            }
+            infoTimer = 0.0f;
         }
         
         // Apply all lighting settings to shader
         lighting.applyToShader(terrainShader, camera->getPosition());
+        
+        // Bind IBL textures if available
+        if (iblTextures.isValid()) {
+            glActiveTexture(GL_TEXTURE10);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, iblTextures.irradianceMap);
+            terrainShader->setInt("u_irradianceMap", 10);
+            
+            glActiveTexture(GL_TEXTURE11);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, iblTextures.prefilterMap);
+            terrainShader->setInt("u_prefilterMap", 11);
+            
+            glActiveTexture(GL_TEXTURE12);
+            glBindTexture(GL_TEXTURE_2D, iblTextures.brdfLUT);
+            terrainShader->setInt("u_brdfLUT", 12);
+        }
 
         // Set transformation matrices
         glm::mat4 projection = glm::perspective(glm::radians(camera->getZoom()), 
@@ -159,6 +219,26 @@ int main() {
         terrainShader->setMat4("view", view);
         terrainShader->setMat4("model", model);
 
+        // === RENDER SKYBOX ===
+        if (iblTextures.isValid()) {
+            glDepthFunc(GL_LEQUAL); // Change depth function for skybox
+            skyboxShader->use();
+            skyboxShader->setMat4("view", view);
+            skyboxShader->setMat4("projection", projection);
+            skyboxShader->setFloat("exposure", 1.0f);
+            
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, iblTextures.environmentMap);
+            skyboxShader->setInt("skybox", 0);
+            
+            HDRLoader::renderUnitCube(); // Render skybox cube
+            
+            glDepthFunc(GL_LESS); // Reset depth function
+        }
+        
+        // === RENDER TERRAIN ===
+        terrainShader->use(); // Make sure terrain shader is active
+        
         // Draw terrain mesh
         terrainMesh->draw(terrainShader);
         // Swap buffers and poll events
@@ -166,6 +246,11 @@ int main() {
         glfwPollEvents();
     }
 
+    // Cleanup HDR resources
+    if (iblTextures.isValid()) {
+        HDRLoader::cleanup(iblTextures);
+    }
+    
     // Cleanup
     glfwTerminate();
     return 0;

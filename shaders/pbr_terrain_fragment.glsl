@@ -29,6 +29,14 @@ uniform samplerCube u_prefilterMap;
 uniform sampler2D u_brdfLUT;
 uniform float u_iblIntensity;
 
+// Atmospheric & Volumetric Fog uniforms
+uniform bool u_enableAtmosphericFog;
+uniform float u_fogDensity;
+uniform float u_fogHeightFalloff;
+uniform vec3 u_fogColor;
+uniform float u_atmosphericPerspective;
+uniform vec3 u_sunDirection;
+
 // Terrain material uniforms
 uniform float u_grassHeight;
 uniform float u_rockHeight;
@@ -209,51 +217,104 @@ struct MaterialProperties {
     vec3 F0;
 };
 
+/**
+ * Enhanced material system with clearer biome differentiation
+ */
 MaterialProperties getTerrainMaterial(float worldHeight, vec3 normal, vec2 detailTexCoords, int materialType, float surfaceDetail) {
     MaterialProperties mat;
     
-    // Calculate slope
+    // Calculate slope factor (0 = flat, 1 = vertical)
     float slope = 1.0 - abs(dot(normalize(normal), vec3(0.0, 1.0, 0.0)));
     
-    // Base materials with PBR properties
-    vec3 grassAlbedo = vec3(0.2, 0.7, 0.1);
-    vec3 rockAlbedo = vec3(0.4, 0.35, 0.3);
-    vec3 snowAlbedo = vec3(0.95, 0.97, 1.0);
-    vec3 dirtAlbedo = vec3(0.3, 0.25, 0.2);
+    // Enhanced material colors with more contrast
+    vec3 grassAlbedo = vec3(0.15, 0.8, 0.05);    // Vibrant green
+    vec3 rockAlbedo = vec3(0.6, 0.5, 0.4);       // Light brown rock
+    vec3 snowAlbedo = vec3(0.98, 0.99, 1.0);     // Pure white snow
+    vec3 dirtAlbedo = vec3(0.25, 0.2, 0.15);     // Dark brown dirt
     
-    // Initialize with dirt
-    mat.albedo = dirtAlbedo;
-    mat.metallic = 0.0;
-    mat.roughness = 0.9;
+    // Determine dominant biome with sharper transitions
+    float grassFactor = 0.0;
+    float rockFactor = 0.0;
+    float snowFactor = 0.0;
+    float dirtFactor = 1.0; // Base layer
     
-    // Grass areas
-    if (worldHeight > u_grassHeight && slope < 0.4) {
-        float grassBlend = smoothstep(u_grassHeight, u_grassHeight + 1.0, worldHeight) *
-                          (1.0 - smoothstep(0.2, 0.6, slope));
-        mat.albedo = mix(mat.albedo, grassAlbedo * mix(0.8, 1.2, surfaceDetail), grassBlend);
-        mat.roughness = mix(mat.roughness, 0.8, grassBlend);
-        mat.metallic = mix(mat.metallic, 0.0, grassBlend);
+    // GRASS BIOME - Lower elevations, gentle slopes
+    if (worldHeight >= u_grassHeight - 0.5f) {
+        float heightFactor = smoothstep(u_grassHeight - 0.5f, u_grassHeight + 1.0f, worldHeight);
+        float slopeFactor = 1.0 - smoothstep(0.15, 0.4, slope); // Gentle slopes only
+        grassFactor = heightFactor * slopeFactor;
+        
+        // Reduce grass at very high elevations
+        if (worldHeight > u_rockHeight) {
+            grassFactor *= 1.0 - smoothstep(u_rockHeight, u_rockHeight + 2.0, worldHeight);
+        }
     }
     
-    // Rock areas
-    if (worldHeight > u_rockHeight || slope > 0.3) {
-        float rockBlend = max(
-            smoothstep(u_rockHeight, u_rockHeight + 2.0, worldHeight),
-            smoothstep(0.3, 0.7, slope)
-        );
-        mat.albedo = mix(mat.albedo, rockAlbedo * mix(0.7, 1.1, surfaceDetail), rockBlend);
-        mat.roughness = mix(mat.roughness, 0.7, rockBlend);
-        mat.metallic = mix(mat.metallic, 0.1, rockBlend);
+    // ROCK BIOME - Steep slopes or higher elevations
+    if (slope > 0.2 || worldHeight > u_rockHeight - 1.0f) {
+        float slopeFactor = smoothstep(0.2, 0.6, slope);  // Steep slope rocks
+        float heightFactor = smoothstep(u_rockHeight - 1.0f, u_rockHeight + 1.0f, worldHeight); // High elevation rocks
+        rockFactor = max(slopeFactor, heightFactor * 0.8);
+    }
+    
+    // SNOW BIOME - Highest elevations, not too steep
+    if (worldHeight >= u_snowHeight - 1.0f) {
+        float heightFactor = smoothstep(u_snowHeight - 1.0f, u_snowHeight + 0.5f, worldHeight);
+        float slopeFactor = 1.0 - smoothstep(0.3, 0.8, slope); // Snow doesn't stick on steep slopes
+        snowFactor = heightFactor * slopeFactor;
+    }
+    
+    // Normalize factors so they add up to 1.0 for proper blending
+    float totalFactor = dirtFactor + grassFactor + rockFactor + snowFactor;
+    if (totalFactor > 0.0) {
+        dirtFactor /= totalFactor;
+        grassFactor /= totalFactor;
+        rockFactor /= totalFactor;
+        snowFactor /= totalFactor;
+    }
+    
+    // Apply sharper blending with surface detail variation
+    vec3 finalAlbedo = vec3(0.0);
+    float finalRoughness = 0.0;
+    float finalMetallic = 0.0;
+    
+    // Dirt base
+    finalAlbedo += dirtAlbedo * mix(0.8, 1.1, surfaceDetail) * dirtFactor;
+    finalRoughness += 0.95 * dirtFactor;
+    finalMetallic += 0.0 * dirtFactor;
+    
+    // Grass areas with more variation
+    if (grassFactor > 0.0) {
+        vec3 grassVariation = grassAlbedo * mix(0.7, 1.3, surfaceDetail);
+        // Add some brown/yellow tinting for realism
+        grassVariation += vec3(0.1, 0.05, 0.0) * surfaceDetail;
+        finalAlbedo += grassVariation * grassFactor;
+        finalRoughness += 0.85 * grassFactor;
+        finalMetallic += 0.0 * grassFactor;
+    }
+    
+    // Rock areas with mineral variation
+    if (rockFactor > 0.0) {
+        vec3 rockVariation = rockAlbedo * mix(0.6, 1.2, surfaceDetail);
+        // Add some reddish/gray tinting
+        rockVariation += vec3(0.05, 0.02, 0.0) * (surfaceDetail - 0.5) * 2.0;
+        finalAlbedo += rockVariation * rockFactor;
+        finalRoughness += 0.75 * rockFactor;
+        finalMetallic += 0.15 * rockFactor; // Slightly metallic for minerals
     }
     
     // Snow areas
-    if (worldHeight > u_snowHeight && slope < 0.5) {
-        float snowBlend = smoothstep(u_snowHeight, u_snowHeight + 1.5, worldHeight) *
-                         (1.0 - smoothstep(0.3, 0.7, slope));
-        mat.albedo = mix(mat.albedo, snowAlbedo * mix(0.95, 1.0, surfaceDetail), snowBlend);
-        mat.roughness = mix(mat.roughness, 0.1, snowBlend);
-        mat.metallic = mix(mat.metallic, 0.0, snowBlend);
+    if (snowFactor > 0.0) {
+        vec3 snowVariation = snowAlbedo * mix(0.95, 1.0, surfaceDetail * 0.5);
+        finalAlbedo += snowVariation * snowFactor;
+        finalRoughness += 0.05 * snowFactor; // Very smooth
+        finalMetallic += 0.0 * snowFactor;
     }
+    
+    // Assign final material properties
+    mat.albedo = finalAlbedo;
+    mat.roughness = clamp(finalRoughness, 0.05, 0.95);
+    mat.metallic = clamp(finalMetallic, 0.0, 1.0);
     
     // Calculate F0 (base reflectance)
     mat.F0 = mix(vec3(0.04), mat.albedo, mat.metallic);
@@ -317,6 +378,60 @@ vec3 calculateDirectionalLight(vec3 lightDir, vec3 lightColor, float lightIntens
     
     float NdotL = max(dot(N, L), 0.0);
     return (kD * material.albedo / PI + specular) * radiance * NdotL;
+}
+
+/**
+ * Advanced Volumetric Fog with Atmospheric Perspective
+ */
+vec3 calculateVolumetricFog(vec3 worldPos, vec3 cameraPos, vec3 color) {
+    if (!u_enableAtmosphericFog) {
+        return color;
+    }
+    
+    vec3 viewVector = worldPos - cameraPos;
+    float distance = length(viewVector);
+    vec3 rayDir = viewVector / distance;
+    
+    // Enhanced exponential height fog
+    float avgHeight = (worldPos.y + cameraPos.y) * 0.5;
+    float heightFactor = exp(-avgHeight * u_fogHeightFalloff);
+    
+    // Distance-based fog density
+    float fogAmount = 1.0 - exp(-distance * u_fogDensity * heightFactor);
+    
+    // Atmospheric perspective - objects get atmospheric color
+    float sunAlignment = max(0.0, dot(rayDir, normalize(-u_sunDirection)));
+    
+    // Fog color varies based on sun alignment and height
+    vec3 sunScatter = mix(vec3(0.6, 0.7, 0.8), vec3(1.0, 0.8, 0.6), sunAlignment);
+    vec3 atmosphericColor = mix(u_fogColor, sunScatter, u_atmosphericPerspective * sunAlignment);
+    
+    // Height-based color variation (cooler at higher altitudes)
+    float heightColorMix = clamp(avgHeight / 20.0, 0.0, 1.0);
+    atmosphericColor = mix(atmosphericColor, vec3(0.5, 0.6, 0.8), heightColorMix * 0.3);
+    
+    return mix(color, atmosphericColor, fogAmount);
+}
+
+/**
+ * Calculate atmospheric light scattering for enhanced realism
+ */
+vec3 calculateAtmosphericLighting(vec3 worldPos, vec3 cameraPos, vec3 lightDir, vec3 lightColor) {
+    vec3 viewDir = normalize(worldPos - cameraPos);
+    float distance = length(worldPos - cameraPos);
+    
+    // Simple atmospheric scattering approximation
+    float scatterAmount = 1.0 - exp(-distance * 0.01);
+    float sunAlignment = max(0.0, dot(viewDir, normalize(-lightDir)));
+    
+    // Rayleigh scattering (blue sky)
+    vec3 rayleighColor = vec3(0.3, 0.6, 1.0) * pow(sunAlignment, 2.0);
+    
+    // Mie scattering (sun halo)
+    float mieStrength = pow(sunAlignment, 8.0) * 0.5;
+    vec3 mieColor = lightColor * mieStrength;
+    
+    return (rayleighColor + mieColor) * scatterAmount * 0.1;
 }
 
 void main() {
@@ -399,11 +514,12 @@ void main() {
         color += material.albedo * 0.03;
     }
     
-    // Atmospheric perspective
-    float distance = length(viewPos - FragPos);
-    float fog = exp(-distance * 0.005);
-    vec3 fogColor = vec3(0.7, 0.8, 0.9);
-    color = mix(fogColor, color, fog);
+    // Enhanced atmospheric and volumetric effects
+    vec3 atmosphericLighting = calculateAtmosphericLighting(FragPos, viewPos, u_dirLightDir, u_dirLightColor);
+    color += atmosphericLighting;
+    
+    // Apply volumetric fog with atmospheric perspective
+    color = calculateVolumetricFog(FragPos, viewPos, color);
     
     // HDR tonemapping (Reinhard)
     color = color / (color + vec3(1.0));

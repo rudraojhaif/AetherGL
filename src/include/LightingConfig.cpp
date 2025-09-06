@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <cmath>
 
 void LightingConfig::applyToShader(std::shared_ptr<Shader> shader, const glm::vec3& viewPos) {
     shader->use();
@@ -45,6 +46,23 @@ void LightingConfig::applyToShader(std::shared_ptr<Shader> shader, const glm::ve
     shader->setInt("u_pomMinSamples", pom.minSamples);
     shader->setInt("u_pomMaxSamples", pom.maxSamples);
     shader->setFloat("u_pomSharpen", pom.sharpen);
+    
+    // Atmospheric & Fog Parameters
+    shader->setBool("u_enableAtmosphericFog", atmosphere.enableAtmosphericFog);
+    shader->setFloat("u_fogDensity", atmosphere.fogDensity);
+    shader->setFloat("u_fogHeightFalloff", atmosphere.fogHeightFalloff);
+    shader->setVec3("u_fogColor", atmosphere.fogColor);
+    shader->setFloat("u_atmosphericPerspective", atmosphere.atmosphericPerspective);
+    shader->setVec3("u_sunDirection", directionalLight.direction);
+    
+    // Full atmospheric scattering parameters (for atmosphere shader)
+    shader->setFloat("u_atmosphereRadius", atmosphere.atmosphereRadius);
+    shader->setFloat("u_planetRadius", atmosphere.planetRadius);
+    shader->setFloat("u_rayleighCoeff", atmosphere.rayleighCoeff);
+    shader->setFloat("u_mieCoeff", atmosphere.mieCoeff);
+    shader->setFloat("u_mieG", atmosphere.mieG);
+    shader->setFloat("u_sunDiskSize", atmosphere.sunDiskSize);
+    shader->setFloat("u_exposure", atmosphere.exposure);
 }
 
 void LightingConfig::setupDefaultLights() {
@@ -80,8 +98,8 @@ void LightingConfig::setupDefaultLights() {
     
     pom.enabled = true;
     pom.scale = 0.08f;
-    pom.minSamples = 16;
-    pom.maxSamples = 64;
+    pom.minSamples = 64;
+    pom.maxSamples = 128;
     
     ibl.enabled = false;
     ibl.intensity = 0.3f;
@@ -165,4 +183,32 @@ void LightingConfig::addPointLight(const PointLight& light) {
 
 void LightingConfig::clearPointLights() {
     pointLights.clear();
+}
+
+void LightingConfig::updateTimeOfDay(float deltaTime) {
+    if (timeOfDay.animateTimeOfDay) {
+        timeOfDay.timeOfDay += deltaTime * timeOfDay.daySpeed;
+        
+        // Wrap around after 24 hours
+        if (timeOfDay.timeOfDay >= 1.0f) {
+            timeOfDay.timeOfDay -= 1.0f;
+        }
+        
+        // Update directional light based on time of day
+        directionalLight.direction = timeOfDay.getSunDirection();
+        directionalLight.color = timeOfDay.getSunColor();
+        directionalLight.intensity = timeOfDay.getSunIntensity();
+        
+        // Adjust fog color based on time of day
+        if (timeOfDay.timeOfDay < 0.3f || timeOfDay.timeOfDay > 0.7f) {
+            // Dawn/Dusk/Night - warmer, more colorful fog
+            float mixFactor = std::clamp(std::abs(timeOfDay.timeOfDay - 0.5f) * 4.0f - 1.0f, 0.0f, 1.0f);
+            glm::vec3 nightFog(0.4f, 0.4f, 0.6f);
+            glm::vec3 sunsetFog(0.8f, 0.6f, 0.4f);
+            atmosphere.fogColor = nightFog + mixFactor * (sunsetFog - nightFog);
+        } else {
+            // Day - standard blue-ish fog
+            atmosphere.fogColor = glm::vec3(0.7f, 0.8f, 0.9f);
+        }
+    }
 }
