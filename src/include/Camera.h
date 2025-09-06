@@ -51,4 +51,16 @@ public:
     glm::vec3 getPosition() const { return m_position; }
     glm::vec3 getFront() const { return m_front; }
     float getZoom() const { return m_zoom; }
+    float getPitch() const { return m_pitch; }
+    float getYaw() const { return m_yaw; }
+    
+    // Setters
+    void setPitch(float pitch) { 
+        m_pitch = pitch; 
+        updateCameraVectors(); 
+    }
+    void setYaw(float yaw) { 
+        m_yaw = yaw; 
+        updateCameraVectors(); 
+    }
 };

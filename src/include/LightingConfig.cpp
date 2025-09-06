@@ -69,25 +69,25 @@ void LightingConfig::setupDefaultLights() {
     // Clear existing lights
     pointLights.clear();
     
-    // Bright daytime sun
+    // Softer daytime sun
     directionalLight = DirectionalLight(
         glm::vec3(0.3f, -0.7f, -0.2f),  // Direction
         glm::vec3(1.0f, 0.95f, 0.8f),   // Warm white color
-        3.0f                             // Intensity
+        1.2f                             // Reduced intensity
     );
     
-    // Add some accent point lights
+    // Add some subtle accent point lights
     addPointLight(PointLight(
         glm::vec3(10.0f, 3.0f, 10.0f),   // Position
         glm::vec3(1.0f, 0.6f, 0.2f),     // Warm orange (campfire)
-        20.0f,                           // Intensity
+        8.0f,                            // Reduced intensity
         25.0f                            // Range
     ));
     
     addPointLight(PointLight(
         glm::vec3(-15.0f, 5.0f, -10.0f), // Position
         glm::vec3(0.2f, 0.4f, 1.0f),     // Cool blue
-        15.0f,                           // Intensity
+        6.0f,                            // Reduced intensity
         20.0f                            // Range
     ));
     
