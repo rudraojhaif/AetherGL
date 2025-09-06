@@ -8,7 +8,7 @@
 #include "Camera.h"
 #include "Shader.h"
 #include "Mesh.h"
-#include "ObjLoader.h"
+#include "TerrainGenerator.h"
 
 // Settings
 const unsigned int SCR_WIDTH = 1200;
@@ -40,7 +40,7 @@ int main() {
 #endif
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OBJ Mesh Loader", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Procedural Terrain Generator", NULL, NULL);
     if (window == NULL) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -63,79 +63,29 @@ int main() {
     // Configure global OpenGL state
     glEnable(GL_DEPTH_TEST);
 
-    // Initialize camera
-    camera = std::make_unique<Camera>(glm::vec3(0.0f, 0.0f, 3.0f));
+    // Initialize camera with better starting position for terrain viewing
+    camera = std::make_unique<Camera>(glm::vec3(0.0f, 5.0f, 10.0f));
 
-    // Load shaders
-    auto shader = std::make_shared<Shader>("vertex.glsl", "fragment.glsl");
+    // Load terrain shaders
+    auto terrainShader = std::make_shared<Shader>("terrain_vertex.glsl", "terrain_fragment.glsl");
 
-    // Load OBJ model (you can replace this with your own .obj file)
-    // For demonstration, we'll create a simple cube if no model is loaded
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Mesh> mesh1;
-    // Try to load an OBJ file - replace "model.obj" with your actual file path
-    mesh = ObjLoader::loadObjFile("C:/Users/RudraOjha/Downloads/Ponte_bridge/sample.obj",0.01f);
-    if (!mesh)
-        std::cout << "Could not load model.obj, creating default cube..." << std::endl;
-    if (true) {
-
-        
-        // Create a simple cube mesh as fallback
-        std::vector<Vertex> vertices = {
-            // Front face
-            {{-0.5f, -0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-            {{ 0.5f, -0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{ 0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f,  0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            
-            // Back face
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}},
-            {{ 0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}},
-            {{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}},
-            {{-0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}},
-            
-            // Left face 
-            {{-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f,  0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            {{-0.5f,  0.5f,  0.5f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{-0.5f,  0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            
-            // Right face
-            {{ 0.5f, -0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{ 0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-            {{ 0.5f,  0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}},
-            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}},
-            
-            // Top face
-            {{-0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-            {{ 0.5f,  0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{ 0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-            {{-0.5f,  0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-            
-            // Bottom face
-            {{-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}},
-            {{ 0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{ 0.5f, -0.5f,  0.5f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}},
-            {{-0.5f, -0.5f,  0.5f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}}
-        };
-        
-        std::vector<unsigned int> indices = {
-            // Front face
-            0, 1, 2, 2, 3, 0,
-            // Back face
-            4, 5, 6, 6, 7, 4,
-            // Left face
-            8, 9, 10, 10, 11, 8,
-            // Right face
-            12, 13, 14, 14, 15, 12,
-            // Top face
-            16, 17, 18, 18, 19, 16,
-            // Bottom face
-            20, 21, 22, 22, 23, 20
-        };
-        
-        mesh1 = std::make_shared<Mesh>(vertices, indices);
+    // Generate procedural terrain mesh
+    // Using medium quality settings for balanced performance and visual quality
+    std::shared_ptr<Mesh> terrainMesh = TerrainGenerator::generateTerrainMesh(
+        50.0f,  // Width: 50 world units
+        50.0f,  // Depth: 50 world units  
+        128,    // Width segments: higher resolution for detailed terrain
+        128,    // Depth segments: higher resolution for detailed terrain
+        glm::vec3(0.0f, -2.0f, 0.0f)  // Center position (slightly below camera)
+    );
+    
+    if (!terrainMesh) {
+        std::cerr << "Failed to generate terrain mesh!" << std::endl;
+        glfwTerminate();
+        return -1;
     }
+    
+    std::cout << "Procedural terrain generated successfully!" << std::endl;
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
@@ -151,32 +101,36 @@ int main() {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Use shader
-        shader->use();
+        // Use terrain shader
+        terrainShader->use();
 
         // Set lighting uniforms
-        shader->setVec3("lightPos", glm::vec3(1.2f, 1.0f, 2.0f));
-        shader->setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-        shader->setVec3("viewPos", camera->getPosition());
-        shader->setVec3("objectColor", glm::vec3(0.8f, 0.6f, 0.4f));
+        terrainShader->setVec3("lightPos", glm::vec3(20.0f, 15.0f, 20.0f));  // Higher light for terrain
+        terrainShader->setVec3("lightColor", glm::vec3(1.0f, 0.95f, 0.8f)); // Warm sunlight
+        terrainShader->setVec3("viewPos", camera->getPosition());
+
+        // Set terrain generation parameters
+        terrainShader->setFloat("u_time", static_cast<float>(glfwGetTime()));
+        terrainShader->setFloat("u_scale", 0.1f);         // Terrain noise scale
+        terrainShader->setFloat("u_heightScale", 3.0f);   // Terrain height multiplier
+        terrainShader->setInt("u_octaves", 6);            // Number of noise octaves
+        terrainShader->setFloat("u_persistence", 0.5f);   // Amplitude persistence
+        terrainShader->setFloat("u_lacunarity", 2.0f);    // Frequency lacunarity
 
         // Set transformation matrices
         glm::mat4 projection = glm::perspective(glm::radians(camera->getZoom()), 
                                               (float)SCR_WIDTH / (float)SCR_HEIGHT, 
-                                              0.1f, 100.0f);
+                                              0.1f, 200.0f);  // Increased far plane for terrain
         glm::mat4 view = camera->getViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
         
-        // Rotate the model
-        // model = glm::rotate(model, (float)glfwGetTime() * 0.5f, glm::vec3(0.0f, 1.0f, 0.0f));
-        //
-        shader->setMat4("projection", projection);
-        shader->setMat4("view", view);
-        shader->setMat4("model", model);
+        // No rotation needed for terrain - keep it stationary
+        terrainShader->setMat4("projection", projection);
+        terrainShader->setMat4("view", view);
+        terrainShader->setMat4("model", model);
 
-        // Draw mesh
-        mesh->draw(shader);
-        mesh1->draw(shader);
+        // Draw terrain mesh
+        terrainMesh->draw(terrainShader);
         // Swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
