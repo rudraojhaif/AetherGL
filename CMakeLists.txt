@@ -9,7 +9,6 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(Stb REQUIRED)
-# find_package(imgui CONFIG REQUIRED)  # Temporarily disabled
 
 # Create executable with GLFW main
 add_executable(${PROJECT_NAME}
@@ -31,13 +30,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         src/include
 )
 
-# Link libraries (pure OpenGL + GLFW + ImGui)
+# Link libraries (pure OpenGL + GLFW)
 target_link_libraries(${PROJECT_NAME} PRIVATE
         glfw
         glad::glad
         glm::glm
         opengl32
-        # imgui::imgui  # Temporarily disabled
 )
 
 # Copy assets and shaders

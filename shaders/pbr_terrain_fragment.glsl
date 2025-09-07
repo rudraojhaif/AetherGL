@@ -1,3 +1,13 @@
+// Copyright (c) 2025 Rudra Ojha
+// All rights reserved.
+//
+// This source code is the property of Rudra Ojha.  
+// Redistribution, modification, or use of this code in any project  
+// (commercial or non-commercial) is strictly prohibited without  
+// prior written consent from the author.
+//
+// Unauthorized usage will be considered a violation of copyright law.
+
 #version 330 core
 
 out vec4 FragColor;
@@ -228,8 +238,8 @@ MaterialProperties getTerrainMaterial(float worldHeight, vec3 normal, vec2 detai
     
     // Enhanced material colors with more contrast
     vec3 grassAlbedo = vec3(0.15, 0.8, 0.05);    // Vibrant green
-    vec3 rockAlbedo = vec3(0.6, 0.5, 0.4);       // Light brown rock
-    vec3 snowAlbedo = vec3(0.98, 0.99, 1.0);     // Pure white snow
+    vec3 rockAlbedo = vec3(0.35, 0.25, 0.15);    // Dark brown rock
+    vec3 snowAlbedo = vec3(1.0, 1.0, 1.0);       // Pure bright white snow
     vec3 dirtAlbedo = vec3(0.25, 0.2, 0.15);     // Dark brown dirt
     
     // Determine dominant biome with sharper transitions

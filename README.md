@@ -114,22 +114,286 @@ mouse_sensitivity=0.1
 
 ### Core Components
 
-#### Rendering Pipeline
-1. **TerrainRenderer**: Main rendering coordinator
-2. **Camera**: First-person camera with Euler angle rotation
-3. **Shader**: OpenGL shader program management
-4. **Mesh**: Vertex data and rendering commands
-5. **PostProcessor**: HDR and effect processing pipeline
+AetherGL is built around a modular architecture with clearly defined responsibilities. Each class is designed following SOLID principles and modern C++ best practices.
 
-#### Lighting System  
-1. **LightingConfig**: Dynamic lighting parameter management
-2. **HDRLoader**: IBL texture loading and cube map generation
-3. **Atmospheric Effects**: Volumetric fog and light scattering
+## Detailed Class Documentation
 
-#### Terrain Generation
-1. **TerrainGenerator**: Procedural height field generation
-2. **NoiseGenerator**: Multi-octave Perlin noise implementation
-3. **Material Blending**: Height and slope-based material distribution
+### Core Rendering System
+
+#### **Camera** (`Camera.h/.cpp`)
+**Purpose**: First-person camera system with smooth movement and look controls
+
+**Key Features**:
+- Euler angle-based rotation system (yaw/pitch)
+- WASD + Space/Shift movement with configurable speed
+- Mouse look with sensitivity settings
+- Field of view (zoom) control via mouse wheel
+- Delta time-based smooth movement
+- View matrix generation for shaders
+
+**Core Methods**:
+- `processKeyboard()`: Handle WASD movement input
+- `processMouseMovement()`: Handle mouse look rotation
+- `processMouseScroll()`: Handle zoom/FOV adjustment
+- `getViewMatrix()`: Generate view matrix for rendering
+
+**Usage**: Central to all 3D navigation and view transformation in the engine.
+
+---
+
+#### **Shader** (`Shader.h/.cpp`) 
+**Purpose**: OpenGL shader program management and uniform setting
+
+**Key Features**:
+- GLSL shader compilation with detailed error reporting
+- Vertex and fragment shader loading from files
+- Type-safe uniform variable setting (bool, int, float, vec3, mat4)
+- Automatic shader program linking and validation
+- RAII resource management for OpenGL objects
+
+**Core Methods**:
+- `setBool/setInt/setFloat()`: Set scalar uniforms
+- `setVec3/setMat4()`: Set vector/matrix uniforms
+- `use()`: Activate shader program for rendering
+
+**Usage**: Used by all rendering components to manage GPU programs and pass data to shaders.
+
+---
+
+#### **Mesh** (`Mesh.h/.cpp`)
+**Purpose**: Vertex data storage and OpenGL mesh rendering
+
+**Key Features**:
+- Efficient vertex buffer object (VBO) management
+- Support for position, normal, and texture coordinate data
+- Indexed rendering with element buffer objects (EBO)
+- Vertex Array Object (VAO) for optimized state management
+- RAII cleanup of OpenGL resources
+
+**Core Methods**:
+- `draw()`: Render mesh using provided shader
+- `getVertices/getIndices()`: Access vertex data for export
+
+**Usage**: Represents all 3D geometry in the engine, particularly the procedural terrain mesh.
+
+---
+
+### Terrain Generation System
+
+#### **TerrainGenerator** (`TerrainGenerator.h/.cpp`)
+**Purpose**: Procedural terrain mesh generation with height displacement
+
+**Key Features**:
+- High-resolution plane mesh generation with configurable subdivision
+- CPU-based height displacement using Perlin noise
+- Smooth normal calculation for proper lighting
+- Multiple quality presets (low-poly, high-poly, custom)
+- Efficient vertex buffer layout optimized for GPU consumption
+- Texture coordinate mapping based on world position
+
+**Core Methods**:
+- `generateTerrainMesh()`: Main terrain generation with full parameter control
+- `generateLowPolyTerrain()`: Performance-optimized terrain (< 10k triangles)
+- `generateHighPolyTerrain()`: Quality-optimized terrain (> 40k triangles)
+
+**Design Patterns**: Factory pattern with static methods for different terrain types
+
+**Usage**: Creates the base geometry that is then enhanced with GPU-based materials and displacement.
+
+---
+
+#### **NoiseGenerator** (`NoiseGenerator.h/.cpp`)
+**Purpose**: High-quality procedural noise generation for terrain heightmaps
+
+**Key Features**:
+- Industry-standard Perlin noise implementation
+- Fractal Brownian Motion (fBm) for natural terrain patterns
+- Configurable octaves, persistence, and lacunarity
+- Seed-based generation for reproducible terrains
+- Optimized for real-time height field generation
+- Both 2D and 3D noise functions
+
+**Core Methods**:
+- `perlin2D/3D()`: Basic Perlin noise generation
+- `fbm2D()`: Multi-octave fractal Brownian motion
+- `generateTerrainHeight()`: Terrain-optimized height generation
+- `setSeed()`: Control randomization for reproducible results
+
+**Mathematical Foundation**: Uses Ken Perlin's improved noise algorithm with proper gradient vectors and fade functions.
+
+**Usage**: Provides the mathematical foundation for terrain height variation and surface detail.
+
+---
+
+### Advanced Lighting System
+
+#### **LightingConfig** (`LightingConfig.h/.cpp`)
+**Purpose**: Comprehensive lighting parameter management for PBR rendering
+
+**Key Features**:
+- Directional light configuration (sun/moon)
+- Multiple point light support (up to 8 lights)
+- Time-of-day cycle with automatic sun movement
+- Atmospheric fog and scattering parameters
+- Terrain material height thresholds
+- Parallax Occlusion Mapping (POM) settings
+- Image-Based Lighting (IBL) configuration
+
+**Core Structures**:
+- `DirectionalLight`: Sun/directional lighting parameters
+- `PointLight`: Local light sources with attenuation
+- `TimeOfDayConfig`: Automated day/night cycle
+- `AtmosphericConfig`: Fog and atmospheric scattering
+- `TerrainMaterialConfig`: Biome height thresholds
+- `POMConfig`: Surface detail mapping parameters
+
+**Core Methods**:
+- `applyToShader()`: Upload all lighting parameters to GPU
+- `updateTimeOfDay()`: Animate sun position and colors
+- `setupDefaultLights()`: Configure realistic lighting scenario
+
+**Usage**: Central hub for all lighting calculations and parameters in the PBR pipeline.
+
+---
+
+#### **HDRLoader** (`HDRLoader.h/.cpp`)
+**Purpose**: HDR environment map loading and IBL texture generation
+
+**Key Features**:
+- Equirectangular HDR image loading (OpenEXR, HDR formats)
+- Automatic cubemap generation from panoramic images
+- Basic IBL texture generation (irradiance, prefilter, BRDF LUT)
+- OpenGL texture management with proper filtering
+- Memory-efficient HDR data processing
+
+**Core Methods**:
+- `loadHDREnvironment()`: Complete IBL texture suite generation
+- `createSkyboxFromHDR()`: HDR skybox cubemap creation
+- `cleanup()`: Proper OpenGL texture resource cleanup
+
+**IBL Pipeline**: Converts HDR environment maps into the textures needed for physically-based environmental lighting.
+
+**Usage**: Enables realistic environmental lighting that responds to actual HDR imagery.
+
+---
+
+### Post-Processing Pipeline
+
+#### **PostProcessor** (`PostProcessor.h/.cpp`)
+**Purpose**: Complete HDR post-processing pipeline with multiple effects
+
+**Key Features**:
+- Off-screen framebuffer rendering (FBO)
+- HDR color accumulation and tone mapping
+- Multi-pass bloom effect (bright pass + Gaussian blur)
+- Depth-based DOF with bokeh-style blur
+- Chromatic aberration lens distortion simulation
+- Configurable effect parameters
+- Ping-pong framebuffer technique for efficient blur
+
+**Effect Pipeline**:
+1. **Scene Rendering**: HDR color accumulation in floating-point framebuffer
+2. **Bright Pass**: Extract pixels above bloom threshold
+3. **Gaussian Blur**: Multi-pass separable blur for bloom spread  
+4. **Final Composite**: Combine effects with tone mapping and gamma correction
+
+**Core Methods**:
+- `beginFrame()`: Start off-screen rendering
+- `endFrame()`: Apply post-processing pipeline and output to screen
+- `resize()`: Handle framebuffer recreation on window resize
+
+**Configuration**: Fully configurable through `PostProcessor::Config` structure
+
+**Usage**: Transforms raw HDR scene data into final display-ready imagery with cinematic effects.
+
+---
+
+
+### Utility and Export System
+
+#### **ObjWriter** (`ObjWriter.h/.cpp`)
+**Purpose**: Wavefront OBJ mesh export for external use
+
+**Key Features**:
+- Industry-standard OBJ format export
+- Complete vertex data export (positions, normals, UVs)
+- Indexed triangle mesh support
+- Metadata generation with export parameters
+- File path validation and directory creation
+- Progress reporting for large mesh exports
+
+**Export Format**:
+- Vertex positions (v x y z)
+- Texture coordinates (vt u v)  
+- Vertex normals (vn x y z)
+- Triangular faces (f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3)
+
+**Core Methods**:
+- `exportMesh()`: Basic mesh export with standard metadata
+- `exportTerrainMesh()`: Extended export with terrain generation parameters
+- `getMeshStatistics()`: Analyze mesh for export reporting
+
+**Usage**: Enables terrain mesh export to external 3D modeling software, game engines, or other applications.
+
+---
+
+#### **TerrainRenderer** (`TerrainRenderer.h/.cpp`)
+**Purpose**: Main rendering coordinator and application entry point
+
+**Key Features**:
+- Complete rendering pipeline orchestration
+- Input handling and camera control
+- Resource management and initialization
+- Frame timing and performance monitoring
+- Integration between all system components
+- Post-processing effect control
+
+**Rendering Pipeline**:
+1. **Setup Phase**: Initialize shaders, meshes, lighting, and post-processing
+2. **Update Phase**: Handle input, update camera, animate time-of-day
+3. **Render Phase**: Draw terrain, apply lighting, execute post-processing
+4. **Present Phase**: Output final image to screen
+
+**Core Methods**:
+- `initialize()`: Setup complete rendering system
+- `render()`: Execute full rendering pipeline  
+- `processKeyboard/Mouse()`: Handle user input
+- `toggleBloom/DOF/ChromaticAberration()`: Runtime effect control
+
+**Integration Role**: Serves as the central coordinator that connects all engine subsystems into a cohesive rendering application.
+
+---
+
+## System Integration
+
+### Data Flow Architecture
+```
+User Input → Camera → View Matrix → Shaders
+                ↓
+TerrainGenerator → Mesh → GPU Buffers → Rendering
+                ↓  
+NoiseGenerator → Height Data → Vertex Displacement
+                ↓
+LightingConfig → Shader Uniforms → PBR Calculations
+                ↓
+HDRLoader → IBL Textures → Environmental Lighting
+                ↓  
+PostProcessor → HDR Framebuffer → Effects Pipeline → Final Output
+```
+
+### Memory Management
+- **RAII Pattern**: All OpenGL resources automatically cleaned up
+- **Smart Pointers**: Automatic memory management for complex objects
+- **Resource Sharing**: Shared shaders and textures to minimize GPU memory
+- **Efficient Updates**: Delta-time based updates minimize unnecessary calculations
+
+### Performance Characteristics
+- **GPU-Centric**: Maximum computation moved to GPU shaders
+- **Batched Operations**: Minimized OpenGL state changes
+- **Cached Results**: Expensive calculations cached when possible
+- **Scalable Quality**: Multiple quality presets for different hardware
+
+This modular architecture enables easy extension, modification, and optimization of individual components without affecting the entire system.
 
 ### Mathematical Foundations
 
@@ -204,8 +468,6 @@ AetherGL/
 │       ├── LightingConfig.h/.cpp   # Dynamic lighting system
 │       ├── HDRLoader.h/.cpp        # IBL texture processing
 │       ├── PostProcessor.h/.cpp    # Post-processing pipeline
-│       ├── GUIManager.h/.cpp       # Debug UI (if enabled)
-│       └── ControlPanel.h/.cpp     # Runtime controls
 ├── shaders/
 │   ├── vertex.glsl                 # Basic vertex shader
 │   ├── fragment.glsl               # Basic fragment shader  

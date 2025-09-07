@@ -1,3 +1,13 @@
+// Copyright (c) 2025 Rudra Ojha
+// All rights reserved.
+//
+// This source code is the property of Rudra Ojha.  
+// Redistribution, modification, or use of this code in any project  
+// (commercial or non-commercial) is strictly prohibited without  
+// prior written consent from the author.
+//
+// Unauthorized usage will be considered a violation of copyright law.
+
 /**
  * AetherGL - Advanced Procedural Terrain Rendering Engine
  * 
@@ -64,6 +74,18 @@ void createDefaultConfigFile() {
         configFile << "enable_chromatic_aberration=true\n";
         configFile << "chromatic_aberration_strength=0.5\n";
         configFile << "exposure=1.0\n\n";
+        
+        configFile << "[Parallax_Occlusion_Mapping]\n";
+        configFile << "enable_pom=true\n";
+        configFile << "pom_scale=0.08\n";
+        configFile << "pom_min_samples=16\n";
+        configFile << "pom_max_samples=64\n";
+        configFile << "pom_sharpen=1.0\n\n";
+        
+        configFile << "[Terrain_Materials]\n";
+        configFile << "grass_height=2.0\n";
+        configFile << "rock_height=8.0\n";
+        configFile << "snow_height=12.0\n\n";
         
         configFile << "[Camera]\n";
         configFile << "position_x=0.0\n";
@@ -148,6 +170,18 @@ void loadConfiguration() {
                 else if (key == "enable_chromatic_aberration") ppConfig.enableChromaticAberration = (value == "true" || value == "1");
                 else if (key == "chromatic_aberration_strength") ppConfig.aberrationStrength = std::stof(value);
                 else if (key == "exposure") ppConfig.exposure = std::stof(value);
+            }
+            else if (currentSection == "Parallax_Occlusion_Mapping") {
+                if (key == "enable_pom") lighting.pom.enabled = (value == "true" || value == "1");
+                else if (key == "pom_scale") lighting.pom.scale = std::stof(value);
+                else if (key == "pom_min_samples") lighting.pom.minSamples = std::stoi(value);
+                else if (key == "pom_max_samples") lighting.pom.maxSamples = std::stoi(value);
+                else if (key == "pom_sharpen") lighting.pom.sharpen = std::stof(value);
+            }
+            else if (currentSection == "Terrain_Materials") {
+                if (key == "grass_height") lighting.terrain.grassHeight = std::stof(value);
+                else if (key == "rock_height") lighting.terrain.rockHeight = std::stof(value);
+                else if (key == "snow_height") lighting.terrain.snowHeight = std::stof(value);
             }
         } catch (const std::exception& e) {
             std::cout << "Warning: Error parsing config value '" << key << "' = '" << value << "': " << e.what() << std::endl;

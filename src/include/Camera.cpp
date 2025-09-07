@@ -1,3 +1,13 @@
+// Copyright (c) 2025 Rudra Ojha
+// All rights reserved.
+//
+// This source code is the property of Rudra Ojha.  
+// Redistribution, modification, or use of this code in any project  
+// (commercial or non-commercial) is strictly prohibited without  
+// prior written consent from the author.
+//
+// Unauthorized usage will be considered a violation of copyright law.
+
 /**
  * Camera.cpp - First-person camera implementation for 3D navigation
  * 

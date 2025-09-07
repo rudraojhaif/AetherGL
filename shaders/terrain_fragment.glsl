@@ -1,3 +1,13 @@
+// Copyright (c) 2025 Rudra Ojha
+// All rights reserved.
+//
+// This source code is the property of Rudra Ojha.  
+// Redistribution, modification, or use of this code in any project  
+// (commercial or non-commercial) is strictly prohibited without  
+// prior written consent from the author.
+//
+// Unauthorized usage will be considered a violation of copyright law.
+
 #version 330 core
 
 out vec4 FragColor;
@@ -147,8 +157,8 @@ int getDominantMaterialType(float worldHeight, float slope) {
 vec3 getTerrainMaterial(float worldHeight, vec3 normal, vec2 detailTexCoords, int materialType) {
     // Define realistic base material colors
     vec3 grassColor = vec3(0.2, 0.7, 0.1);      // Vibrant green grass  
-    vec3 rockColor = vec3(0.5, 0.4, 0.35);      // Gray-brown rock
-    vec3 snowColor = vec3(0.95, 0.97, 1.0);     // Pure white snow
+    vec3 rockColor = vec3(0.3, 0.2, 0.1);       // Dark brown rock
+    vec3 snowColor = vec3(1.0, 1.0, 1.0);       // Pure bright white snow
     vec3 dirtColor = vec3(0.4, 0.3, 0.2);       // Dark brown dirt
     
     // Calculate slope factor (steeper slopes = more rock exposure)
