@@ -50,7 +50,19 @@ AetherGL is a high-performance, real-time procedural terrain rendering engine bu
 
 ## Building the Project
 
-### Using CMake (Recommended)
+### Using CLion with vcpkg (Recommended)
+1. **Download CLion**: Get CLion IDE from JetBrains
+2. **Install vcpkg**: Download and setup vcpkg package manager
+3. **Install dependencies via vcpkg**:
+   ```bash
+   vcpkg install glfw3 glad glm stb
+   ```
+4. **Configure CLion**: Set CMake toolchain file to point to vcpkg:
+   - Go to Settings → Build → CMake
+   - Set CMake options: `-DCMAKE_TOOLCHAIN_FILE=[path-to-vcpkg]/scripts/buildsystems/vcpkg.cmake`
+5. **Build**: Use CLion's build system (Ctrl+F9)
+
+### Using CMake (Alternative)
 ```bash
 mkdir build
 cd build
